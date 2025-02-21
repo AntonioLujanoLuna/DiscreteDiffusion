@@ -27,6 +27,7 @@ from tqdm import tqdm
 from diffusion import forward_process, compute_constraint_loss
 from validate import validate_ddm_model
 from ddm_utils import compute_evidence_loss, simulate_reverse_diffusion_ddm
+from dataset import get_curriculum_clue_ratio
 
 def train_diffusion_ddm(
     model: nn.Module,
@@ -37,7 +38,9 @@ def train_diffusion_ddm(
     num_epochs: int = 100,
     initial_lambda_constraint: float = 1.0,
     lambda_evidence: float = 0.5,
-    val_dataloader: torch.utils.data.DataLoader = None 
+    val_dataloader: torch.utils.data.DataLoader = None, 
+    start_ratio=0.9, 
+    end_ratio=0.1
 ) -> None:
     """
     Trains the discrete diffusion Sudoku solver using an extended objective that incorporates
@@ -58,6 +61,8 @@ def train_diffusion_ddm(
                                                      Defaults to 1.0.
         lambda_evidence (float, optional): Weight for the evidence consistency loss.
                                            Defaults to 0.5.
+        start_ratio (float): Start clue ratio for training 
+        end_ratio (float): Ending clue ratio for training 
     """
     model.train()
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
@@ -65,6 +70,9 @@ def train_diffusion_ddm(
     )
 
     for epoch in range(num_epochs):
+        ratio = get_curriculum_clue_ratio(epoch, num_epochs, start_ratio, end_ratio)
+        dataloader.dataset.set_epoch_ratio(ratio)
+
         lambda_constraint = initial_lambda_constraint * (0.95 ** epoch)
         epoch_loss = 0.0
         epoch_ce_loss = 0.0

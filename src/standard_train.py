@@ -2,9 +2,11 @@ import torch
 import torch.nn.functional as F
 from diffusion import forward_process, compute_constraint_loss
 from validate import validate_model
+from dataset import get_curriculum_clue_ratio
 from tqdm import tqdm
 
-def train_diffusion(model, dataloader, num_timesteps, optimizer, device, num_epochs=100, initial_lambda_constraint=1.0, val_dataloader=None):
+def train_diffusion(model, dataloader, num_timesteps, optimizer, device, num_epochs=100, 
+    initial_lambda_constraint=1.0, val_dataloader=None, start_ratio=0.9, end_ratio=0.1):
     """
     Trains the diffusion model and optionally evaluates on a validation set.
     
@@ -17,6 +19,8 @@ def train_diffusion(model, dataloader, num_timesteps, optimizer, device, num_epo
         num_epochs (int): Number of training epochs.
         initial_lambda_constraint (float): Initial weight for the constraint loss.
         val_dataloader (DataLoader, optional): Validation dataloader.
+        start_ratio (float): Start clue ratio for training 
+        end_ratio (float): Ending clue ratio for training 
     """
     model.train()
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
@@ -24,6 +28,11 @@ def train_diffusion(model, dataloader, num_timesteps, optimizer, device, num_epo
     )
     
     for epoch in range(num_epochs):
+        # 1) Update ratio at start of epoch
+        ratio = get_curriculum_clue_ratio(epoch, num_epochs, start_ratio, end_ratio)
+        dataloader.dataset.set_epoch_ratio(ratio)
+        
+        # 2) Standard steps
         lambda_constraint = initial_lambda_constraint * (0.95 ** epoch)
         epoch_loss = 0.0
         epoch_ce_loss = 0.0
@@ -79,7 +88,8 @@ def train_diffusion(model, dataloader, num_timesteps, optimizer, device, num_epo
             print(f"Validation: Loss: {val_loss:.4f}, CE Loss: {val_ce_loss:.4f}, Constraint Loss: {val_constraint_loss:.4f}")
 
 
-def train_diffusion_curriculum_learning(model, dataloader, num_timesteps, optimizer, device, num_epochs=100, lambda_constraint=1.0, curriculum_epochs=5, val_dataloader=None):
+def train_diffusion_curriculum_learning(model, dataloader, num_timesteps, optimizer, device, num_epochs=100, 
+        lambda_constraint=1.0, curriculum_epochs=5, val_dataloader=None, start_ratio=0.95, end_ratio=0.05):
     """
     Trains the diffusion model using a curriculum strategy: starting with only the cross-entropy loss
     for a set number of epochs, then adding the constraint loss.
@@ -94,6 +104,8 @@ def train_diffusion_curriculum_learning(model, dataloader, num_timesteps, optimi
         lambda_constraint (float): Weight for the constraint loss.
         curriculum_epochs (int): Number of epochs to train without the constraint loss.
         val_dataloader (DataLoader, optional): Validation dataloader.
+        start_ratio (float): Start clue ratio for training 
+        end_ratio (float): Ending clue ratio for training 
     """
     model.train()
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
@@ -101,6 +113,9 @@ def train_diffusion_curriculum_learning(model, dataloader, num_timesteps, optimi
     )
     
     for epoch in range(num_epochs):
+        ratio = get_curriculum_clue_ratio(epoch, num_epochs, start_ratio, end_ratio)
+        dataloader.dataset.set_epoch_ratio(ratio)
+
         epoch_loss = 0.0
         epoch_ce_loss = 0.0
         epoch_constraint_loss = 0.0

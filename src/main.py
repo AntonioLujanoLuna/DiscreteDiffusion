@@ -24,8 +24,8 @@ from model import ImprovedSudokuDenoiser  # Using the improved version.
 from visualization import display_trajectory_interactive
 
 # Set MODE here: "Standard", "DDM", or "DoT".
-# MODE: str = "Standard"
-MODE: str = "DDM"
+MODE: str = "Standard"
+# MODE: str = "DDM"
 # MODE: str = "DoT"
 
 def main() -> None:
@@ -35,11 +35,11 @@ def main() -> None:
     random.seed(42)
     
     # Hyperparameters.
-    num_samples: int = 2000
-    clue_ratio: float = 0.3
+    num_samples: int = 5000
+    clue_ratio: float = 0.1
     batch_size: int = 32
     num_epochs: int = 30
-    num_timesteps: int = 50
+    num_timesteps: int = 100
     learning_rate: float = 1e-4
     hidden_dim: int = 128
     num_layers: int = 6

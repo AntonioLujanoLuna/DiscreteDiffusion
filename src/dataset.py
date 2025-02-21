@@ -77,34 +77,57 @@ def augment_sudoku(board):
     
     return aug_board
 
+def get_curriculum_clue_ratio(epoch, num_epochs, start_ratio=0.9, end_ratio=0.1):
+    """
+    Returns a clue_ratio for the given epoch that linearly moves from start_ratio 
+    to end_ratio over num_epochs.
+    """
+    progress = epoch / (num_epochs - 1)  # goes from 0.0 -> 1.0
+    ratio = (1.0 - progress) * start_ratio + progress * end_ratio
+    return ratio
+
 class SudokuDataset(Dataset):
-    """
-    PyTorch Dataset for generating augmented solved Sudoku boards and corresponding clue masks.
-    Each sample is a dictionary with:
-      - 'solved_board': a torch.LongTensor of shape (9, 9) with values in {1,...,9}.
-      - 'clue_mask': a torch.FloatTensor of shape (9, 9) with 1.0 for clue cells.
-    """
     def __init__(self, num_samples=1000, clue_ratio=0.3, augment=True):
         self.num_samples = num_samples
-        self.clue_ratio = clue_ratio
+        self.initial_clue_ratio = clue_ratio   # We'll treat this as a 'default' or 'initial' ratio
+        self.clue_ratio = clue_ratio           # The *current* ratio we will actually use
         self.augment = augment
-        self.samples = []
+
+        # Generate all boards *once* and store them
+        self.boards = []
         for _ in range(num_samples):
-            board = generate_full_sudoku()
+            board = generate_full_sudoku()  # returns a 9x9 solved board
             if self.augment:
-                board = augment_sudoku(board)
-            # board is a 9x9 numpy array with digits 1-9.
-            mask = np.random.rand(9, 9) < clue_ratio
-            if not mask.any():
-                mask[random.randint(0, 8), random.randint(0, 8)] = True
-            mask = mask.astype(np.float32)
-            self.samples.append((board, mask))
-    
+                board = augment_sudoku(board)  # returns a 9x9 np array
+            self.boards.append(board)
+
+    def set_epoch_ratio(self, ratio: float):
+        """
+        Called externally (e.g., by the training loop at the start of each epoch)
+        to update the clue ratio used to build the clue mask.
+        """
+        self.clue_ratio = ratio
+
     def __len__(self):
         return self.num_samples
-    
+
     def __getitem__(self, idx):
-        board, mask = self.samples[idx]
-        solved_board = torch.tensor(board, dtype=torch.long)   # Shape: (9, 9)
-        clue_mask = torch.tensor(mask, dtype=torch.float32)      # Shape: (9, 9)
-        return {"solved_board": solved_board, "clue_mask": clue_mask}
+        """
+        Instead of storing a single mask in memory, we compute a random mask
+        *each time* we fetch an item. That way we always sample a mask with
+        the *current* clue ratio.
+        """
+        board = self.boards[idx]  # 9x9 np array with digits 1-9
+        mask = (np.random.rand(9, 9) < self.clue_ratio).astype(np.float32)
+
+        # Ensure at least one cell is a clue:
+        if not mask.any():
+            mask[random.randint(0, 8), random.randint(0, 8)] = 1.0
+
+        board_tensor = torch.tensor(board, dtype=torch.long)   # shape (9,9)
+        mask_tensor  = torch.tensor(mask,  dtype=torch.float32)# shape (9,9)
+
+        return {
+            "solved_board": board_tensor, 
+            "clue_mask": mask_tensor
+        }
