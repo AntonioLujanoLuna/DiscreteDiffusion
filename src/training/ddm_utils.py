@@ -1,11 +1,7 @@
 """
-ddm_utils.py
+Diffusion Decision Model (DDM) utilities for the Discrete Diffusion project.
 
-Functions:
-    - simulate_reverse_diffusion_ddm: Runs a differentiable simulation of reverse diffusion,
-      updating an evidence accumulator over multiple timesteps.
-    - compute_evidence_loss: Computes an auxiliary loss that measures how well the accumulated
-      evidence matches the target (solved) board.
+This module provides utilities for DDM-based diffusion training and inference.
 """
 
 from typing import Tuple
@@ -46,7 +42,7 @@ def simulate_reverse_diffusion_ddm(
     """
     # Get batch size and number of tokens.
     B = initial_board.size(0)
-    num_tokens: int = 10
+    num_tokens: int = model.num_tokens
 
     # Initialize the board and accumulator.
     current_board: torch.Tensor = initial_board.clone()  # (B, 9, 9)
