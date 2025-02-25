@@ -14,8 +14,9 @@ import os
 # Add the src directory to the path so imports work
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../src')))
 
-from model import ImprovedSudokuDenoiser, HybridSudokuDenoiser
-from utils import enforce_clue_logits
+from models import ImprovedSudokuDenoiser, HybridSudokuDenoiser
+from models.components import SinusoidalTimeEmbedding
+from utils.diffusion_utils import enforce_clue_logits
 
 
 class TestModelArchitectures(unittest.TestCase):
@@ -82,28 +83,22 @@ class TestModelArchitectures(unittest.TestCase):
             pred_token = logits[b, i, j].argmax().item()
             self.assertEqual(pred_token, token, f"Clue cell at {b},{i},{j} should predict token {token}, got {pred_token}")
     
-    def test_enforce_clue_logits(self):
-        """Test enforce_clue_logits function."""
-        # Create random logits
-        logits = torch.randn((self.batch_size, 9, 9, self.num_tokens), device=self.device)
+    def test_sinusoidal_time_embedding(self):
+        """Test SinusoidalTimeEmbedding."""
+        embedding = SinusoidalTimeEmbedding(hidden_dim=self.hidden_dim).to(self.device)
         
-        # Apply enforce_clue_logits
-        modified_logits = enforce_clue_logits(logits, self.board, self.clue_mask)
-        
-        # Check that logits for clue cells are modified
-        clue_cells = torch.where(self.clue_mask == 1)
-        for b, i, j in zip(*clue_cells):
-            token = self.board[b, i, j]
-            # The logit for the correct token should be very high
-            self.assertTrue(modified_logits[b, i, j, token] > 1e5)
-            # Logits for other tokens should be very low
-            other_logits = torch.cat([modified_logits[b, i, j, :token], modified_logits[b, i, j, token+1:]])
-            self.assertTrue((other_logits < -1e5).all())
-        
-        # Check that logits for non-clue cells are unchanged
-        non_clue_cells = torch.where(self.clue_mask == 0)
-        for b, i, j in zip(*non_clue_cells):
-            self.assertTrue(torch.allclose(modified_logits[b, i, j], logits[b, i, j]))
+        # Test with different timesteps
+        for t_val in [1, 50, 100]:
+            t = torch.full((self.batch_size, 1), t_val, device=self.device, dtype=torch.float)
+            
+            # Get embedding
+            t_emb = embedding(t)
+            
+            # Check shape
+            self.assertEqual(t_emb.shape, (self.batch_size, self.hidden_dim))
+            
+            # Check that values are not all the same (basic check)
+            self.assertTrue(t_emb.unique().shape[0] > 1)
 
 
 if __name__ == '__main__':

@@ -6,6 +6,7 @@ Tests inference strategies and engine.
 """
 
 import torch
+import numpy as np
 import unittest
 import sys
 import os
@@ -119,6 +120,34 @@ class TestInferenceStrategies(unittest.TestCase):
         # Check that result is a list of boards
         self.assertEqual(len(result), 2)
     
+    def test_dot_strategy(self):
+        """Test DoT inference strategy."""
+        strategy = DoTInferenceStrategy()
+        
+        # Test run_inference method directly as it overrides the template method
+        result = strategy.run_inference(
+            self.model, self.initial_board, self.clue_mask, self.num_timesteps, self.device,
+            num_trajectories=2
+        )
+        
+        # Check that it returns a tuple (final_board, trajectories)
+        self.assertTrue(isinstance(result, tuple))
+        self.assertEqual(len(result), 2)
+        
+        # Check that final_board is a numpy array with shape (1, 9, 9)
+        final_board, trajectories = result
+        self.assertTrue(isinstance(final_board, np.ndarray))
+        self.assertEqual(final_board.shape, (1, 9, 9))
+        
+        # Check that trajectories is a list of trajectories
+        self.assertTrue(isinstance(trajectories, list))
+        self.assertEqual(len(trajectories), 2)  # num_trajectories=2
+        
+        # Check that each trajectory is a list of boards
+        for traj in trajectories:
+            self.assertTrue(isinstance(traj, list))
+            self.assertGreater(len(traj), 0)
+    
     def test_inference_engine(self):
         """Test inference engine."""
         # Create engine with standard strategy
@@ -146,6 +175,63 @@ class TestInferenceStrategies(unittest.TestCase):
         
         # Check that trajectory is a list of boards
         self.assertGreater(len(trajectory), 0)
+    
+    def test_run_inference(self):
+        """Test run_inference function."""
+        # Test with standard strategy
+        trajectory_standard = run_inference(
+            model=self.model,
+            solved_board=self.solved_board,
+            clue_mask=self.clue_mask,
+            num_timesteps=self.num_timesteps,
+            device=self.device,
+            mode="standard"
+        )
+        
+        # Check that it returns a list of boards
+        self.assertTrue(isinstance(trajectory_standard, list))
+        self.assertGreater(len(trajectory_standard), 0)
+        
+        # Test with ddm strategy
+        trajectory_ddm = run_inference(
+            model=self.model,
+            solved_board=self.solved_board,
+            clue_mask=self.clue_mask,
+            num_timesteps=self.num_timesteps,
+            device=self.device,
+            mode="ddm",
+            threshold=0.9
+        )
+        
+        # Check that it returns a list of boards
+        self.assertTrue(isinstance(trajectory_ddm, list))
+        self.assertGreater(len(trajectory_ddm), 0)
+        
+        # Test with dot strategy
+        result_dot = run_inference(
+            model=self.model,
+            solved_board=self.solved_board,
+            clue_mask=self.clue_mask,
+            num_timesteps=self.num_timesteps,
+            device=self.device,
+            mode="dot",
+            num_trajectories=2
+        )
+        
+        # Check that it returns a tuple (final_board, trajectories)
+        self.assertTrue(isinstance(result_dot, tuple))
+        self.assertEqual(len(result_dot), 2)
+        
+        # Test with invalid mode
+        with self.assertRaises(ValueError):
+            run_inference(
+                model=self.model,
+                solved_board=self.solved_board,
+                clue_mask=self.clue_mask,
+                num_timesteps=self.num_timesteps,
+                device=self.device,
+                mode="invalid"
+            )
 
 
 if __name__ == '__main__':
