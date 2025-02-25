@@ -56,7 +56,15 @@ class CheckpointManager:
         # Get logger
         try:
             from logger import get_logger
-            self.logger = get_logger()
+            self.logger = get_logger(experiment_name=self.experiment_name)
+            if self.logger is None:
+                # Create a simple logger
+                self.logger = type('SimpleLogger', (), {
+                    'info': lambda _, msg: print(f"[INFO] {msg}"),
+                    'warning': lambda _, msg: print(f"[WARNING] {msg}"),
+                    'error': lambda _, msg: print(f"[ERROR] {msg}"),
+                    'debug': lambda _, msg: print(f"[DEBUG] {msg}")
+                })()
         except (ImportError, AttributeError):
             # If logger module is not available, use a simple print function
             self.logger = type('SimpleLogger', (), {
@@ -65,7 +73,7 @@ class CheckpointManager:
                 'error': lambda _, msg: print(f"[ERROR] {msg}"),
                 'debug': lambda _, msg: print(f"[DEBUG] {msg}")
             })()
-        
+                
         self.logger.info(f"Checkpoint manager initialized at {self.checkpoint_dir}")
     
     def _get_checkpoint_filename(self, epoch: int, step: Optional[int] = None) -> str:

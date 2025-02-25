@@ -7,7 +7,7 @@ This module provides different strategies for running inference with diffusion m
 import torch
 import torch.nn.functional as F
 import numpy as np
-from typing import List, Optional, Callable, Tuple, Any, Union
+from typing import List, Tuple, Any, Union, Dict
 
 from diffusion import forward_process
 

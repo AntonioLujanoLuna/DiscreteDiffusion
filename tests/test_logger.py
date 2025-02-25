@@ -35,11 +35,20 @@ class TestLogger(unittest.TestCase):
     
     def tearDown(self):
         """Clean up."""
-        shutil.rmtree(self.temp_dir)
-        
-        # Close logger to release file handles
+        # First close logger to release file handles
         if hasattr(self, 'logger'):
             self.logger.close()
+        
+        # Give OS time to release file handles
+        import time
+        time.sleep(0.1)
+        
+        # Then try to remove the directory, with error handling
+        try:
+            shutil.rmtree(self.temp_dir)
+        except PermissionError:
+            print(f"Warning: Could not delete {self.temp_dir} due to permission error. Will continue.")
+            pass  # Continue the test anyway
     
     def test_logger_initialization(self):
         """Test logger initialization."""
@@ -136,7 +145,15 @@ class TestLogger(unittest.TestCase):
     def test_get_logger(self):
         """Test get_logger function."""
         # Clean up logger from setUp to avoid interference
-        self.logger.close()
+        if hasattr(self, 'logger'):
+            self.logger.close()
+            delattr(self, 'logger')
+        
+        # Reset global logger
+        from logger.logger import _LOGGER
+        if '_LOGGER' in globals() and _LOGGER is not None:
+            _LOGGER.close()
+            globals()['_LOGGER'] = None
         
         # Create a new logger with get_logger
         logger1 = get_logger(
@@ -152,7 +169,8 @@ class TestLogger(unittest.TestCase):
         self.assertEqual(logger1, logger2)
         
         # Clean up
-        logger1.close()
+        if logger1 is not None:
+            logger1.close()
 
 
 if __name__ == '__main__':

@@ -15,7 +15,7 @@ import os
 # Add the src directory to the path so imports work
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../src')))
 
-from dataset import (
+from data import (
     SudokuDataset, generate_full_sudoku, augment_sudoku, create_sudoku_puzzle,
     count_solutions, meets_minimum_distribution, create_unique_sudoku_puzzle
 )

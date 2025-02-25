@@ -9,7 +9,10 @@ from .sudoku_utils import (
     generate_full_sudoku,
     create_sudoku_puzzle,
     create_unique_sudoku_puzzle,
-    get_curriculum_clue_ratio
+    get_curriculum_clue_ratio,
+    augment_sudoku, 
+    count_solutions, 
+    meets_minimum_distribution
 )
 
 __all__ = [
@@ -17,5 +20,8 @@ __all__ = [
     'generate_full_sudoku',
     'create_sudoku_puzzle',
     'create_unique_sudoku_puzzle',
-    'get_curriculum_clue_ratio'
+    'get_curriculum_clue_ratio',
+    'augment_sudoku', 
+    'count_solutions', 
+    'meets_minimum_distribution'
 ]

@@ -7,7 +7,7 @@ This module provides general-purpose utility functions that are used across the 
 import random
 import torch
 import numpy as np
-from typing import List, Union
+from typing import List, Union, Optional
 
 def set_seeds(seed: int) -> None:
     """

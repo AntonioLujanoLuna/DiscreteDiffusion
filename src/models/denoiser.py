@@ -72,9 +72,15 @@ class ImprovedSudokuDenoiser(BaseDenoiser):
         # Flatten the grid to a sequence.
         x_emb = x_emb.view(batch_size, -1, self.hidden_dim)  # (B, 81, hidden_dim)
         
-        # Compute time embedding and add.
+        # Ensure t has the right shape
+        if t.dim() == 1:
+            t = t.unsqueeze(1)  # Ensure t has shape (B, 1)
+        # Get time embedding
         t_emb = self.time_embedding(t)              # (B, hidden_dim)
+        # Unsqueeze for broadcasting
         t_emb = t_emb.unsqueeze(1)                  # (B, 1, hidden_dim)
+        # Explicitly expand to match x_emb
+        t_emb = t_emb.expand(-1, x_emb.size(1), -1)  # (B, 81, hidden_dim)
         x_emb = x_emb + t_emb
         
         # Process with the transformer encoder.

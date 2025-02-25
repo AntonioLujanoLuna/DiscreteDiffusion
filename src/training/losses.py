@@ -197,7 +197,7 @@ class DDMLossStrategy(LossStrategy):
         constraint_loss = compute_constraint_loss(logits)
         
         # Simulate reverse diffusion to get the evidence accumulator
-        from ddm_utils import simulate_reverse_diffusion_ddm, compute_evidence_loss
+        from .ddm_utils import simulate_reverse_diffusion_ddm, compute_evidence_loss
         _, accumulator = simulate_reverse_diffusion_ddm(
             model, x_t, clue_mask, num_timesteps, device, threshold=threshold
         )
@@ -285,7 +285,7 @@ class DoTLossStrategy(LossStrategy):
         constraint_loss = compute_constraint_loss(logits)
         
         # Simulate multiple reverse diffusion trajectories
-        from dot_utils import simulate_reverse_diffusion_dot, compute_trajectory_consistency_loss
+        from .dot_utils import simulate_reverse_diffusion_dot, compute_trajectory_consistency_loss
         trajectories = simulate_reverse_diffusion_dot(
             model, x_t, clue_mask, num_timesteps, device, num_trajectories
         )
