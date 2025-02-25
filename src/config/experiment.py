@@ -93,11 +93,43 @@ class ExperimentConfig:
     """Master configuration for an experiment."""
     experiment_name: str = "default_experiment"
     seed: int = 42
-    device: str = "cuda"  # or "cpu"
+    device: str = "cuda"
     model: ModelConfig = field(default_factory=ModelConfig)
     data: DataConfig = field(default_factory=DataConfig)
     training: TrainingConfig = field(default_factory=TrainingConfig)
     logging: LoggingConfig = field(default_factory=LoggingConfig)
+    
+    def __post_init__(self):
+        """Validate configuration after initialization."""
+        self.validate()
+    
+    def validate(self):
+        """Validate the configuration."""
+        # Check device
+        if self.device not in ["cuda", "cpu"] and not self.device.startswith("cuda:"):
+            raise ValueError(f"Invalid device: {self.device}. Must be 'cuda', 'cpu', or 'cuda:n'")
+        
+        # Check interdependencies
+        if self.training.mode == TrainingMode.DDM and self.training.lambda_evidence <= 0:
+            raise ValueError("lambda_evidence must be positive for DDM training mode")
+        
+        if self.training.mode == TrainingMode.DOT and self.training.lambda_trajectory <= 0:
+            raise ValueError("lambda_trajectory must be positive for DoT training mode")
+        
+        # Check numeric ranges
+        if not (0 < self.data.clue_ratio < 1):
+            raise ValueError(f"clue_ratio must be between 0 and 1, got {self.data.clue_ratio}")
+        
+        if self.training.num_timesteps <= 0:
+            raise ValueError(f"num_timesteps must be positive, got {self.training.num_timesteps}")
+        
+        if self.training.learning_rate <= 0:
+            raise ValueError(f"learning_rate must be positive, got {self.training.learning_rate}")
+        
+        # Check model configuration based on model type
+        if self.model.model_type == ModelType.HYBRID:
+            if self.model.num_conv_layers <= 0:
+                raise ValueError(f"num_conv_layers must be positive for Hybrid model, got {self.model.num_conv_layers}")
     
     def save(self, filepath: str) -> None:
         """Save config to a JSON file."""

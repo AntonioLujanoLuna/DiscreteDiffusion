@@ -1,0 +1,43 @@
+{
+    "experiment_name": "standard_sudoku_solver",
+    "seed": 42,
+    "device": "cuda",
+    "model": {
+      "model_type": "Base",
+      "num_tokens": 10,
+      "hidden_dim": 128,
+      "num_layers": 6,
+      "nhead": 8,
+      "dropout": 0.1
+    },
+    "data": {
+      "num_samples": 2000,
+      "clue_ratio": 0.3,
+      "batch_size": 32,
+      "num_workers": 4,
+      "pin_memory": true,
+      "val_samples": 500,
+      "augment": true,
+      "ensure_unique": true,
+      "start_ratio": 0.7,
+      "end_ratio": 0.2
+    },
+    "training": {
+      "mode": "Standard",
+      "num_epochs": 20,
+      "num_timesteps": 100,
+      "learning_rate": 1e-4,
+      "lambda_constraint": 1.0,
+      "threshold": 0.9,
+      "use_learned_noise": true
+    },
+    "logging": {
+      "log_dir": "logs",
+      "checkpoint_dir": "checkpoints",
+      "save_freq": 5,
+      "log_freq": 100,
+      "use_tensorboard": true,
+      "visualize_inference": true,
+      "export_inference": true
+    }
+  }

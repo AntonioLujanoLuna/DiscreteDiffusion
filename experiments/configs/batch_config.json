@@ -1,0 +1,54 @@
+{
+    "base_config": {
+      "experiment_name": "sudoku_grid_search",
+      "seed": 42,
+      "device": "cuda",
+      "model": {
+        "model_type": "Hybrid",
+        "num_tokens": 10,
+        "hidden_dim": 128,
+        "num_layers": 6,
+        "nhead": 8,
+        "dropout": 0.1,
+        "num_conv_layers": 2,
+        "conv_kernel_size": 3
+      },
+      "data": {
+        "num_samples": 2000,
+        "clue_ratio": 0.3,
+        "batch_size": 32,
+        "num_workers": 4,
+        "pin_memory": true,
+        "val_samples": 500,
+        "augment": true,
+        "ensure_unique": true,
+        "start_ratio": 0.7,
+        "end_ratio": 0.2
+      },
+      "training": {
+        "mode": "DDM",
+        "num_epochs": 20,
+        "num_timesteps": 100,
+        "learning_rate": 1e-4,
+        "lambda_constraint": 1.0,
+        "lambda_evidence": 0.5,
+        "threshold": 0.9,
+        "use_learned_noise": true
+      },
+      "logging": {
+        "log_dir": "logs",
+        "checkpoint_dir": "checkpoints",
+        "save_freq": 5,
+        "log_freq": 100,
+        "use_tensorboard": true,
+        "visualize_inference": false,
+        "export_inference": true
+      }
+    },
+    "parameter_grid": {
+      "model.hidden_dim": [64, 128, 256],
+      "training.learning_rate": [1e-3, 5e-4, 1e-4],
+      "training.lambda_evidence": [0.2, 0.5, 1.0],
+      "data.clue_ratio": [0.2, 0.3, 0.4]
+    }
+  }
