@@ -324,32 +324,33 @@ def compute_constraint_loss(logits: torch.Tensor) -> torch.Tensor:
     batch_size = p.size(0)
     
     # --- Create masks for all constraints at once ---
-    # We'll create a tensor of shape (3*B, 9, 9*9) that contains:
-    # - Row constraints: each row must have each digit exactly once
-    # - Column constraints: each column must have each digit exactly once
-    # - Block constraints: each 3x3 block must have each digit exactly once
+    # We'll handle all constraints with tensor operations
     
-    # First, reshape p for row constraints - already correctly shaped
-    p_rows = p  # (B, 9, 9, 9)
+    # Row constraints (already properly arranged)
+    # Sum across cells in each row for each digit
+    row_sums = p.sum(dim=2)  # (B, 9, 9) - sum along columns
     
-    # For column constraints, we transpose rows and columns
-    p_cols = p.transpose(1, 2)  # (B, 9, 9, 9)
+    # Column constraints
+    # Sum across cells in each column for each digit
+    col_sums = p.sum(dim=1)  # (B, 9, 9) - sum along rows
     
-    # For block constraints, reshape to blocks
-    p_blocks = p.view(batch_size, 3, 3, 3, 3, 9)  # (B, 3, 3, 3, 3, 9)
-    # Permute to group cells within the same block
-    p_blocks = p_blocks.permute(0, 1, 3, 2, 4, 5).contiguous()  # (B, 3, 3, 3, 3, 9)
-    # Reshape to (B, 9 blocks, 9 cells per block, 9 digits)
-    p_blocks = p_blocks.view(batch_size, 9, 9, 9)
+    # Block constraints
+    # Reshape to group by 3×3 blocks
+    reshaped = p.view(batch_size, 3, 3, 3, 3, 9)  # (B, 3, 3, 3, 3, 9)
+    # Sum across cells in each block for each digit
+    block_sums = reshaped.sum(dim=(2, 4))  # (B, 3, 3, 9)
+    block_sums = block_sums.view(batch_size, 9, 9)  # (B, 9, 9)
     
-    # Combine all constraints into a single tensor
-    all_constraints = torch.cat([p_rows, p_cols, p_blocks], dim=0)  # (3*B, 9, 9, 9)
+    # Stack all constraints together
+    all_sums = torch.cat([
+        row_sums.view(batch_size * 9, 9),
+        col_sums.view(batch_size * 9, 9),
+        block_sums.view(batch_size * 9, 9)
+    ], dim=0)  # (B*27, 9)
     
-    # Compute sum for each constraint group and digit
-    constraint_sums = all_constraints.sum(dim=2)  # (3*B, 9, 9)
-    
-    # Compute squared error from target sum of 1 for all constraints at once
-    loss = ((constraint_sums - 1) ** 2).mean()
+    # Compute squared error from target (should sum to 1)
+    # This computes loss for all constraints at once
+    loss = ((all_sums - 1.0) ** 2).mean()
     
     return loss
 

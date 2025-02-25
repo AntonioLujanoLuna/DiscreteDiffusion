@@ -281,11 +281,34 @@ class TrainingEngine:
                 is_best=is_best
             )
     
-    def _move_to_device(self, batch: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
-        """Move all tensors in batch to device."""
-        for key in batch:
-            batch[key] = batch[key].to(self.device)
-        return batch
+    def _move_to_device(self, batch: Dict[str, torch.Tensor], device: torch.device) -> Dict[str, torch.Tensor]:
+        """
+        Move all tensors in batch to device and preprocess data for training.
+        This combines multiple operations to minimize device transfers.
+        
+        Args:
+            batch (Dict[str, torch.Tensor]): Input batch.
+            device (torch.device): Target device.
+            
+        Returns:
+            Dict[str, torch.Tensor]: Processed batch on device.
+        """
+        processed_batch = {}
+        
+        # Move tensors to device and preprocess in one pass
+        for key, tensor in batch.items():
+            # Handle different tensor types appropriately
+            if key == "solved_board" or key == "puzzle_board":
+                # For boards, ensure correct dtype for embedding lookup
+                processed_batch[key] = tensor.to(device, dtype=torch.long)
+            elif key == "clue_mask":
+                # For masks, ensure float dtype for multiplication
+                processed_batch[key] = tensor.to(device, dtype=torch.float)
+            else:
+                # Default handling for other tensors
+                processed_batch[key] = tensor.to(device)
+                
+        return processed_batch
     
     def _init_metrics(self) -> Dict[str, float]:
         """Initialize metrics dictionary with zeros."""

@@ -31,26 +31,33 @@ def forward_process(
     Returns:
         torch.Tensor: Noisy board of shape (B, 9, 9) with tokens in {0,...,9}.
     """
+    batch_size, height, width = x0.shape
+    
+    # Compute noise probability
     if noise_schedule_fn is None:
         time_fraction = t / num_timesteps
         noise_prob = 1 - torch.cos(time_fraction * (math.pi / 2))
     else:
         noise_prob = noise_schedule_fn(t, num_timesteps)
     
-    # Keep noise_prob as (B, 1, 1) for broadcasting without explicit expand_as
+    # View for broadcasting
     noise_prob = noise_prob.view(-1, 1, 1)
     
-    # Generate noise mask directly with broadcasting
-    random_tensor = torch.rand_like(x0, dtype=torch.float)
-    noise_mask = (random_tensor < noise_prob) & (clue_mask == 0)
+    # Generate noise mask with one tensor operation
+    noise_mask = (torch.rand_like(x0, dtype=torch.float) < noise_prob) & (clue_mask == 0)
     
-    # Generate random tokens only for positions where noise will be applied
+    # Create output tensor
+    x_t = x0.clone()
+    
+    # Count noise positions
     noise_positions = noise_mask.sum().item()
     
-    # Use scatter operation for more efficient update
-    x_t = x0.clone()
+    # Only generate random tokens if there are positions to apply noise to
     if noise_positions > 0:
+        # Generate random tokens for all noise positions at once
         random_tokens = torch.randint(0, 10, (noise_positions,), device=x0.device)
+        
+        # Use masked_scatter for efficient update
         x_t = x_t.masked_scatter_(noise_mask, random_tokens)
     
     return x_t
@@ -79,16 +86,40 @@ def reverse_diffusion_inference(
     """
     model.eval()
     with torch.no_grad():
+        # Initialize 
         current_board = initial_board.clone()  # (1,9,9)
         trajectory = [current_board.cpu().numpy()]
-        for t in reversed(range(1, num_timesteps + 1)):
-            t_tensor = torch.tensor([[t]], device=device, dtype=torch.float)
+        
+        # Pre-compute timestep tensors for all steps
+        timesteps = torch.tensor(
+            [[t] for t in reversed(range(1, num_timesteps + 1))], 
+            device=device, dtype=torch.float
+        )
+        
+        # For efficiency, create a mask for non-clue cells
+        non_clue_mask = (clue_mask == 0)
+        
+        # Process all timesteps
+        for t_tensor in timesteps:
+            # Get model predictions
             logits = model(current_board, t_tensor, clue_mask)  # (1,9,9,num_tokens)
+            
+            # Convert to probabilities
             probs = F.softmax(logits, dim=-1)
-            sampled = torch.multinomial(probs.view(-1, probs.size(-1)), 1).view(1, 9, 9)
+            
+            # For non-clue cells only, sample from the predicted distribution
+            # This avoids unnecessary sampling for clue cells
+            probs_flat = probs.view(-1, probs.size(-1))[non_clue_mask.view(-1)]
+            sampled_flat = torch.multinomial(probs_flat, 1).view(-1)
+            
+            # Create new board with updated non-clue cells
             new_board = current_board.clone()
-            non_clue = (clue_mask == 0)
-            new_board[non_clue] = sampled[non_clue]
+            new_board[non_clue_mask] = sampled_flat
+            
+            # Update current board
             current_board = new_board
+            
+            # Add to trajectory
             trajectory.append(current_board.cpu().numpy())
+        
         return trajectory

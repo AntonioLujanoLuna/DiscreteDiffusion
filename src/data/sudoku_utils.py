@@ -217,6 +217,7 @@ def generate_full_sudoku() -> List[List[int]]:
 def augment_sudoku(board: Union[List[List[int]], np.ndarray]) -> np.ndarray:
     """
     Applies data augmentation to a fully solved Sudoku board.
+    Optimized to minimize memory allocations and use numpy vectorized operations.
     
     Augmentations include:
       - A random permutation of the digits.
@@ -231,47 +232,50 @@ def augment_sudoku(board: Union[List[List[int]], np.ndarray]) -> np.ndarray:
     Returns:
         new_board (np.ndarray): Augmented 9x9 Sudoku board.
     """
-    # Convert to numpy array if not already.
-    board_np = np.array(board, dtype=np.int64)
+    # Convert to numpy array if not already
+    board_np = np.asarray(board, dtype=np.int64)
     
-    # ---------------------------
-    # 1) Digit Permutation:
-    # ---------------------------
-    perm = np.random.permutation(np.arange(1, 10))
-    digit_map = {i + 1: perm[i] for i in range(9)}
-    aug_board = np.vectorize(lambda x: digit_map[x])(board_np)
+    # Generate all random values at once
+    # This avoids multiple calls to the random number generator
+    rng = np.random.RandomState()  # Create a dedicated random state
     
-    # ---------------------------
-    # 2) Row Swap within Bands:
-    # ---------------------------
+    # Create a digit mapping for permutation (1-9 -> random permutation)
+    perm = rng.permutation(np.arange(1, 10))
+    digit_map = {i+1: perm[i] for i in range(9)}
+    
+    # Apply digit permutation with vectorized operations
+    # Create a lookup table for all possible values 0-9
+    lookup = np.zeros(10, dtype=np.int64)
+    for i in range(1, 10):
+        lookup[i] = digit_map[i]
+    aug_board = lookup[board_np]
+    
+    # Prepare all band/stack permutations at once
+    band_perms = [rng.permutation(range(i, i+3)) for i in range(0, 9, 3)]
+    stack_perms = [rng.permutation(range(i, i+3)) for i in range(0, 9, 3)]
+    
+    # Prepare band and stack indexing arrays
+    row_idx = np.arange(9)
     for band in range(3):
-        rows = list(range(band * 3, band * 3 + 3))
-        random.shuffle(rows)
-        aug_board[band * 3:band * 3 + 3, :] = aug_board[rows, :]
+        row_idx[band*3:(band+1)*3] = band_perms[band]
     
-    # ---------------------------
-    # 3) Column Swap within Stacks:
-    # ---------------------------
+    col_idx = np.arange(9)
     for stack in range(3):
-        cols = list(range(stack * 3, stack * 3 + 3))
-        random.shuffle(cols)
-        aug_board[:, stack * 3:stack * 3 + 3] = aug_board[:, cols]
+        col_idx[stack*3:(stack+1)*3] = stack_perms[stack]
     
-    # ---------------------------
-    # 4) Random Rotation:
-    # ---------------------------
-    # Rotate the board by 0, 90, 180, or 270 degrees
-    k = np.random.randint(0, 4)
-    aug_board = np.rot90(aug_board, k=k)
+    # Apply row and column permutations at once
+    aug_board = aug_board[row_idx, :][:, col_idx]
     
-    # ---------------------------
-    # 5) Random Flips:
-    # ---------------------------
-    # With probability 0.5, perform a horizontal flip.
-    if np.random.rand() < 0.5:
+    # Generate rotation and flip parameters
+    k_rot = rng.randint(0, 4)  # 0, 90, 180, or 270 degrees
+    do_fliplr = rng.rand() < 0.5
+    do_flipud = rng.rand() < 0.5
+    
+    # Apply rotation and flips
+    aug_board = np.rot90(aug_board, k=k_rot)
+    if do_fliplr:
         aug_board = np.fliplr(aug_board)
-    # With probability 0.5, perform a vertical flip.
-    if np.random.rand() < 0.5:
+    if do_flipud:
         aug_board = np.flipud(aug_board)
     
     return aug_board
